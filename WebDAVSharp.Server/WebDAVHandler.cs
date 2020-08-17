@@ -60,8 +60,6 @@ namespace WebDAVSharp.Server
                 };
             _methodHandlers = handlersWithNames.ToDictionary(v => v.name, v => v.methodHandler);
             _log = LogManager.GetLogger("WebDAVSharp.Server");
-
-            _url = "";
         }
 
         /// <summary>
