@@ -49,7 +49,7 @@ namespace WebDAVSharp.Server.Stores.DiskStore
             _parentCollection = parentCollection;
             _path = path;
             Identity = (WindowsIdentity)Thread.GetData(Thread.GetNamedDataSlot(WebDavServer.HttpUser));
-            Log = LogManager.GetCurrentClassLogger();
+            Log = LogManager.GetLogger("WebDAVSharp.Server");
         }
 
         /// <summary>

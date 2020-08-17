@@ -5,6 +5,7 @@ using System.IO;
 using System.Linq;
 using System.Text;
 using System.Threading;
+using System.Web;
 using Common.Logging;
 using WebDAVSharp.Server.Adapters;
 using WebDAVSharp.Server.Exceptions;
@@ -60,8 +61,6 @@ namespace WebDAVSharp.Server
         ///   <paramref name="methodHandlers" /> contains a <c>null</c>-reference.</para></exception>
         public WebDavServer(IWebDavStore store, IHttpListener listener = null, IEnumerable<IWebDavMethodHandler> methodHandlers = null)
         {
-            if (store == null)
-                throw new ArgumentNullException("store");
             if (listener == null)
             {
                 listener = new HttpListenerAdapter();
@@ -77,7 +76,7 @@ namespace WebDAVSharp.Server
                 throw new ArgumentException("The methodHandlers collection contains a null-reference", "methodHandlers");
 
             _listener = listener;
-            _store = store;
+            _store = store ?? throw new ArgumentNullException("store");
             var handlersWithNames =
                 from methodHandler in webDavMethodHandlers
                 from name in methodHandler.Names
@@ -87,7 +86,7 @@ namespace WebDAVSharp.Server
                     methodHandler
                 };
             _methodHandlers = handlersWithNames.ToDictionary(v => v.name, v => v.methodHandler);
-            _log = LogManager.GetCurrentClassLogger();
+            _log = LogManager.GetLogger("WebDAVSharp.Server");
             }
 
         /// <summary>
@@ -250,13 +249,12 @@ namespace WebDAVSharp.Server
                 try
                 {
                     string method = context.Request.HttpMethod;
-                    IWebDavMethodHandler methodHandler;
-                    if (!_methodHandlers.TryGetValue(method, out methodHandler))
+                    if (!_methodHandlers.TryGetValue(method, out var methodHandler))
                         throw new WebDavMethodNotAllowedException(string.Format(CultureInfo.InvariantCulture, "%s ({0})", context.Request.HttpMethod));
 
                     context.Response.AppendHeader("DAV", "1,2,1#extend");
 
-                    methodHandler.ProcessRequest(this, context, Store);
+                    methodHandler.ProcessRequest(context, Store, this.Listener.Prefixes.ToList());
 
                 }
                 catch (WebDavException)

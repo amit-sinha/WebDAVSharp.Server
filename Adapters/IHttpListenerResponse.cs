@@ -75,6 +75,16 @@ namespace WebDAVSharp.Server.Adapters
         }
 
         /// <summary>
+        /// 
+        /// </summary>
+        string ContentType
+        {
+            get;
+            set;
+        }
+
+
+        /// <summary>
         /// Sends the response to the client and releases the resources held by the adapted
         /// <see cref="HttpListenerResponse" /> instance.
         /// </summary>

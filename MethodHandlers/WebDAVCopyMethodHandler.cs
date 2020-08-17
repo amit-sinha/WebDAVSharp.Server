@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Net;
+using System.Web;
 using WebDAVSharp.Server.Adapters;
 using WebDAVSharp.Server.Exceptions;
 using WebDAVSharp.Server.Stores;
@@ -33,17 +34,26 @@ namespace WebDAVSharp.Server.MethodHandlers
         /// <summary>
         /// Processes the request.
         /// </summary>
-        /// <param name="server">The <see cref="WebDavServer" /> through which the request came in from the client.</param>
+        /// <param name="prefixes">The <see cref="HttpListenerPrefixCollection" /> through which the request came in from the client.</param>
         /// <param name="context">The 
-        /// <see cref="IHttpListenerContext" /> object containing both the request and response
+        /// <see cref="HttpContext" /> object containing both the request and response
         /// objects to use.</param>
         /// <param name="store">The <see cref="IWebDavStore" /> that the <see cref="WebDavServer" /> is hosting.</param>
         /// <exception cref="WebDAVSharp.Server.Exceptions.WebDavMethodNotAllowedException"></exception>
-        public void ProcessRequest(WebDavServer server, IHttpListenerContext context, IWebDavStore store)
+        public void ProcessRequest(IHttpListenerContext context, IWebDavStore store, IList<string> prefixes)
         {            
-            IWebDavStoreItem source = context.Request.Url.GetItem(server, store);
+            IWebDavStoreItem source = context.Request.Url.GetItem(prefixes, store);
             if (source is IWebDavStoreDocument || source is IWebDavStoreCollection)
-                CopyItem(server, context, store, source);
+                CopyItem(context.Request, context.Response, store, source, prefixes);
+            else
+                throw new WebDavMethodNotAllowedException();
+        }
+
+        public void ProcessRequest(HttpRequest request, HttpResponse response, IWebDavStore store, IList<string> prefixes)
+        {
+            IWebDavStoreItem source = request.Url.GetItem(prefixes, store);
+            if (source is IWebDavStoreDocument || source is IWebDavStoreCollection)
+                CopyItem(prefixes, request, response, store, source);
             else
                 throw new WebDavMethodNotAllowedException();
         }
@@ -51,19 +61,20 @@ namespace WebDAVSharp.Server.MethodHandlers
         /// <summary>
         /// Copies the item.
         /// </summary>
-        /// <param name="server">The server.</param>
-        /// <param name="context">The context.</param>
+        /// <param name="prefixes">The server.</param>
+        /// <param name="request">The context.</param>
+        /// <param name="response">The context.</param>
         /// <param name="store">The store.</param>
         /// <param name="source">The source.</param>
         /// <exception cref="WebDAVSharp.Server.Exceptions.WebDavForbiddenException"></exception>
         /// <exception cref="WebDAVSharp.Server.Exceptions.WebDavPreconditionFailedException"></exception>
-        private static void CopyItem(WebDavServer server, IHttpListenerContext context, IWebDavStore store,
+        private static void CopyItem(IList<string> prefixes, HttpRequest request, HttpResponse response, IWebDavStore store,
             IWebDavStoreItem source)
         {
-            Uri destinationUri = GetDestinationHeader(context.Request);
-            IWebDavStoreCollection destinationParentCollection = GetParentCollection(server, store, destinationUri);
+            Uri destinationUri = GetDestinationHeader(request.Headers);
+            IWebDavStoreCollection destinationParentCollection = GetParentCollection(prefixes, store, destinationUri);
 
-            bool copyContent = (GetDepthHeader(context.Request) != 0);
+            bool copyContent = (GetDepthHeader(request.Headers) != 0);
             bool isNew = true;
 
             string destinationName = Uri.UnescapeDataString(destinationUri.Segments.Last().TrimEnd('/', '\\'));
@@ -73,7 +84,7 @@ namespace WebDAVSharp.Server.MethodHandlers
             {
                 if (source.ItemPath == destination.ItemPath)
                     throw new WebDavForbiddenException();
-                if (!GetOverwriteHeader(context.Request))
+                if (!GetOverwriteHeader(request.Headers))
                     throw new WebDavPreconditionFailedException();
                 if (destination is IWebDavStoreCollection)
                     destinationParentCollection.Delete(destination);
@@ -82,7 +93,34 @@ namespace WebDAVSharp.Server.MethodHandlers
 
             destinationParentCollection.CopyItemHere(source, destinationName, copyContent);
 
-            context.SendSimpleResponse(isNew ? HttpStatusCode.Created : HttpStatusCode.NoContent);
+            response.SendSimpleResponse(isNew ? HttpStatusCode.Created : HttpStatusCode.NoContent);
+        }
+
+        private static void CopyItem(IHttpListenerRequest request, IHttpListenerResponse response, IWebDavStore store, IWebDavStoreItem source, IList<string> prefixes)
+        {
+            Uri destinationUri = GetDestinationHeader(request.Headers);
+            IWebDavStoreCollection destinationParentCollection = GetParentCollection(prefixes, store, destinationUri);
+
+            bool copyContent = (GetDepthHeader(request.Headers) != 0);
+            bool isNew = true;
+
+            string destinationName = Uri.UnescapeDataString(destinationUri.Segments.Last().TrimEnd('/', '\\'));
+            IWebDavStoreItem destination = destinationParentCollection.GetItemByName(destinationName);
+
+            if (destination != null)
+            {
+                if (source.ItemPath == destination.ItemPath)
+                    throw new WebDavForbiddenException();
+                if (!GetOverwriteHeader(request.Headers))
+                    throw new WebDavPreconditionFailedException();
+                if (destination is IWebDavStoreCollection)
+                    destinationParentCollection.Delete(destination);
+                isNew = false;
+            }
+
+            destinationParentCollection.CopyItemHere(source, destinationName, copyContent);
+
+            response.SendSimpleResponse(isNew ? HttpStatusCode.Created : HttpStatusCode.NoContent);
         }
     }
 }

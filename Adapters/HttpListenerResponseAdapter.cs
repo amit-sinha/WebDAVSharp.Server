@@ -22,10 +22,7 @@ namespace WebDAVSharp.Server.Adapters
         /// <exception cref="ArgumentNullException"><paramref name="Response" /> is <c>null</c>.</exception>
         public HttpListenerResponseAdapter(HttpListenerResponse Response)
         {
-        if (Response == null)
-            throw new ArgumentNullException("Response");
-
-        _response = Response;
+            _response = Response ?? throw new ArgumentNullException("Response");
         }
 
         /// <summary>
@@ -134,6 +131,21 @@ namespace WebDAVSharp.Server.Adapters
         public void AppendHeader(string name, string value)
         {
             _response.AppendHeader(name, value);
+        }
+
+        /// <summary>
+        /// 
+        /// </summary>
+        public string ContentType
+        {
+            get
+            {
+                return _response.ContentType;
+            }
+            set
+            {
+                _response.ContentType = value;
+            }
         }
     }
 }

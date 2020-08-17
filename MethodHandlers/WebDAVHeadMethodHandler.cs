@@ -30,9 +30,40 @@ namespace WebDAVSharp.Server.MethodHandlers
         }
 
         /// <summary>
+        /// 
+        /// </summary>
+        /// <param name="request"></param>
+        /// <param name="response"></param>
+        /// <param name="store"></param>
+        /// <param name="prefixes"></param>
+        public void ProcessRequest(HttpRequest request, HttpResponse response, IWebDavStore store, IList<string> prefixes)
+        {
+            // Get the parent collection of the item
+            IWebDavStoreCollection collection = GetParentCollection(prefixes, store, request.Url);
+
+            // Get the item from the collection
+            IWebDavStoreItem item = GetItemFromCollection(collection, request.Url);
+
+            /***************************************************************************************************
+            * Send the response
+            ***************************************************************************************************/
+
+            // HttpStatusCode doesn't contain WebDav status codes, but HttpWorkerRequest can handle these WebDav status codes
+            response.StatusCode = (int)HttpStatusCode.OK;
+            response.StatusDescription = HttpWorkerRequest.GetStatusDescription((int)HttpStatusCode.OK);
+
+            // set the headers of the response
+            //context.Response.ContentLength = 0;
+            response.AppendHeader("Content-Type", "text/html");
+            response.AppendHeader("Last-Modified", item.ModificationDate.ToUniversalTime().ToString("R"));
+
+            response.Close();
+        }
+
+        /// <summary>
         /// Processes the request.
         /// </summary>
-        /// <param name="server">The <see cref="WebDavServer" /> through which the request came in from the client.</param>
+        /// <param name="prefixes">The <see cref="WebDavServer" /> through which the request came in from the client.</param>
         /// <param name="context">The 
         /// <see cref="IHttpListenerContext" /> object containing both the request and response
         /// objects to use.</param>
@@ -43,10 +74,10 @@ namespace WebDAVSharp.Server.MethodHandlers
         /// <para>
         ///   <paramref name="context" /> specifies a request for a store item that is not a document.</para></exception>
         /// <exception cref="WebDavConflictException"><paramref name="context" /> specifies a request for a store item using a collection path that does not exist.</exception>
-        public void ProcessRequest(WebDavServer server, IHttpListenerContext context, IWebDavStore store)
+        public void ProcessRequest(IHttpListenerContext context, IWebDavStore store, IList<string> prefixes)
         {
             // Get the parent collection of the item
-            IWebDavStoreCollection collection = GetParentCollection(server, store, context.Request.Url);
+            IWebDavStoreCollection collection = GetParentCollection(prefixes, store, context.Request.Url);
 
             // Get the item from the collection
             IWebDavStoreItem item = GetItemFromCollection(collection, context.Request.Url);
@@ -60,7 +91,7 @@ namespace WebDAVSharp.Server.MethodHandlers
             context.Response.StatusDescription = HttpWorkerRequest.GetStatusDescription((int)HttpStatusCode.OK);
 
             // set the headers of the response
-            context.Response.ContentLength64 = 0;
+            //context.Response.ContentLength = 0;
             context.Response.AppendHeader("Content-Type", "text/html");
             context.Response.AppendHeader("Last-Modified", item.ModificationDate.ToUniversalTime().ToString("R"));
 
