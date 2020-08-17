@@ -37,11 +37,8 @@ namespace WebDAVSharp.Server
         /// </summary>
         public WebDAVHandler()
         {
-            _localStore = ConfigurationManager.AppSettings["LOCALSTORE"];
-            if(string.IsNullOrWhiteSpace(_localStore))
-            {
-                _localStore = @"E:\Projects\webDav\LocalPath";
-            }
+            _localStore = ConfigurationManager.AppSettings["Localpath"];
+            _url = ConfigurationManager.AppSettings["StartupUrl"];
             _store = new WebDavDiskStore(_localStore);
 
             var methodHandlers = WebDavMethodHandlers.BuiltIn;
